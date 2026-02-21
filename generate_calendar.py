@@ -2,7 +2,7 @@ import feedparser
 from datetime import datetime, timedelta
 import pytz
 
-TEAMS = ["FaZe", "G2", "NAVI"]
+TEAMS = ["FaZe", "GamerLegion", "Ninjas in Pyjamas"]
 
 feed = feedparser.parse("https://www.hltv.org/rss/matches")
 
