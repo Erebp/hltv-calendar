@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 import pytz
 
 # --- KONFIGURACJA ---
-TEAMS = ["FaZe", "G2", "NAVI"]  # <- tutaj wpisz swoje drużyny
+TEAMS = ["FaZe", "GamerLegion", "Ninjas in Pyjamas"]  # <- Twoje drużyny
 CALENDAR_FILE = "matches.ics"
 TIMEZONE = pytz.timezone("Europe/Warsaw")
 REMINDER_MINUTES = 30  # przypomnienie przed meczem
