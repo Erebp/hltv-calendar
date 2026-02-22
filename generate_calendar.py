@@ -2,56 +2,62 @@ import requests
 from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
 import pytz
+import re
 
-# --- KONFIGURACJA ---
-TEAMS = ["FaZe", "GamerLegion", "Ninjas in Pyjamas"]  # <- Twoje drużyny
+# ---- KONFIGURACJA ----
+TEAMS = ["FaZe", "GamerLegion", "Ninjas in Pyjamas"]
 CALENDAR_FILE = "matches.ics"
 TIMEZONE = pytz.timezone("Europe/Warsaw")
-REMINDER_MINUTES = 30  # przypomnienie przed meczem
+REMINDER_MINUTES = 30
 
-# --- POBIERANIE STRONY HLTV ---
+# ---- POBIERANIE STRONY ----
 url = "https://www.hltv.org/matches"
-headers = {
-    "User-Agent": "Mozilla/5.0"
-}
+headers = {"User-Agent": "Mozilla/5.0"}
 resp = requests.get(url, headers=headers)
 soup = BeautifulSoup(resp.text, "html.parser")
 
-# --- TWORZENIE LISTY WYDARZEŃ ---
+# ---- ZBIERANIE TEKSTU Z HTML ----
+text = soup.get_text(separator="\n")
+
+lines = text.split("\n")
+
 events = []
 
-matches = soup.select(".upcomingMatch")  # selektor dla nadchodzących meczów
-for match in matches:
-    team_names = match.select(".matchTeamName")
-    if len(team_names) < 2:
-        continue
+today = datetime.now(TIMEZONE)
 
-    t1, t2 = team_names[0].text.strip(), team_names[1].text.strip()
-    if not any(team in TEAMS for team in [t1, t2]):
-        continue  # pomiń jeśli żadna drużyna nie jest w TEAMS
+for line in lines:
+    # linie wyglądają np. "13:00 bo1 GamerLegion Phantom"
+    m = re.match(r"(\d{1,2}:\d{2}) .+? (.+?) (.+)$", line.strip())
+    if m:
+        time_str = m.group(1)                # np. "13:00"
+        team1 = m.group(2).strip()
+        team2 = m.group(3).strip()
 
-    timestamp = match.get("data-zulu")
-    if not timestamp:
-        continue
-    start_utc = datetime.fromtimestamp(int(timestamp), pytz.utc)
-    start_local = start_utc.astimezone(TIMEZONE)
-    if start_local < datetime.now(TIMEZONE):
-        continue  # pomiń mecze w przeszłości
-    end_local = start_local + timedelta(hours=3)
+        if team1 in TEAMS or team2 in TEAMS:
+            # budujemy datę meczu
+            dt = datetime(today.year, today.month, today.day,
+                          int(time_str.split(":")[0]),
+                          int(time_str.split(":")[1]))
+            dt = TIMEZONE.localize(dt)
 
-    event = f"""BEGIN:VEVENT
-SUMMARY:{t1} vs {t2}
-DTSTART:{start_local.strftime('%Y%m%dT%H%M%S')}
-DTEND:{end_local.strftime('%Y%m%dT%H%M%S')}
-DESCRIPTION:https://www.hltv.org/matches
+            if dt < today:
+                continue  # pomijamy mecze które już były
+
+            end = dt + timedelta(hours=3)
+
+            event = f"""BEGIN:VEVENT
+SUMMARY:{team1} vs {team2}
+DTSTART:{dt.strftime('%Y%m%dT%H%M%S')}
+DTEND:{end.strftime('%Y%m%dT%H%M%S')}
+DESCRIPTION:{url}
 BEGIN:VALARM
 TRIGGER:-PT{REMINDER_MINUTES}M
 ACTION:DISPLAY
-DESCRIPTION:Przypomnienie o meczu
+DESCRIPTION:Przypomnienie
 END:VALARM
 END:VEVENT
 """
-    events.append(event)
+            events.append(event)
 
 calendar_content = f"""BEGIN:VCALENDAR
 VERSION:2.0
